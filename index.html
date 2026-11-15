@@ -72,7 +72,7 @@ const store={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
 const MODEL="gemini-3.8-flash";
-const FG=(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())?Capacitor.registerPlugin("ForegroundService"):null;
+let FG=null;try{FG=(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.ForegroundService)||null}catch(e){}
 let fgOn=false,lastBlob=null,lastDur=0;
 async function fgStart(txt){
   if(!FG||fgOn)return;
