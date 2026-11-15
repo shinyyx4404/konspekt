@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0b10">
+<title>Уч Конспект</title>
+<style>
+:root{--bg:#0a0b10;--card:#14161f;--card2:#1e2233;--tx:#f2f4fa;--mut:#8a90a6;--ac:#4f7cf0;--red:#e5484d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{height:100%;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+main{flex:1;overflow-y:auto;padding:18px 18px 24px}
+button,input{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+h1{font-size:34px;line-height:1.1;margin:0;font-weight:800;letter-spacing:-.5px}
+h2{font-size:22px;margin:0;font-weight:700}
+.gear{width:48px;height:48px;border-radius:16px;background:var(--card);display:grid;place-items:center}
+.micwrap{display:grid;place-items:center;margin:28px 0 14px}
+.ring{width:210px;height:210px;border-radius:50%;border:1px solid #26305a;display:grid;place-items:center;box-shadow:0 0 60px #2a45a533}
+.mic{width:176px;height:176px;border-radius:50%;background:linear-gradient(145deg,#5f8bf5,#3b5fcc);display:grid;place-items:center;border:6px solid #0a0b10;outline:1px solid #26305a}
+.mic.on{background:linear-gradient(145deg,#f0646a,#c23338);animation:pulse 1.6s ease-in-out infinite}
+.mic:disabled{opacity:.5}
+@keyframes pulse{50%{transform:scale(.95)}}
+@media (prefers-reduced-motion:reduce){.mic.on{animation:none}}
+.cap{text-align:center;color:var(--mut);font-size:19px;margin:0 0 20px}
+.bar{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:28px;padding:18px 22px;color:var(--mut)}
+.bar .st{flex:1;font-size:15px}
+.bar .tm{border-left:1px solid #2a2e3f;padding-left:18px;font-size:22px;color:var(--tx);font-variant-numeric:tabular-nums}
+.bars{display:flex;gap:4px;align-items:center;height:26px}
+.bars i{width:4px;border-radius:2px;background:var(--ac)}
+.rec .bars i{background:var(--red)}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:30px 0 14px}
+.link{color:var(--ac);font-size:17px}
+.item{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:var(--card);border-radius:24px;padding:16px;margin-bottom:12px}
+.ico{width:52px;height:52px;border-radius:16px;background:var(--card2);display:grid;place-items:center;flex:none}
+.item b{display:block;font-size:19px;font-weight:600}
+.item small{color:var(--mut);font-size:15px}
+.item .t{flex:1;min-width:0}
+.empty{color:var(--mut);padding:8px 4px}
+nav{display:flex;border-top:1px solid #1d2030;padding:8px 0 calc(8px + env(safe-area-inset-bottom));background:var(--bg)}
+nav button{flex:1;display:grid;justify-items:center;gap:2px;color:var(--mut);font-size:14px;padding:6px 0}
+nav button.on{color:var(--ac)}
+nav button.on::after{content:"";width:60%;height:3px;border-radius:2px;background:var(--ac);margin-top:2px}
+.note h3{font-size:20px;margin:22px 0 8px}
+.note p,.note li{font-size:17px;line-height:1.55;margin:0 0 8px}
+.note ul{padding-left:22px;margin:0 0 8px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.btn{background:var(--ac);border-radius:16px;padding:13px 20px;font-weight:600}
+.btn.g{background:var(--card2)}
+.btn.d{background:#3a1d22;color:#ff8a8f}
+.back{color:var(--ac);padding:4px 0 14px;font-size:17px}
+input[type=password],input[type=text]{width:100%;background:var(--card);border:1px solid #2a2e3f;border-radius:16px;padding:14px 16px;margin:10px 0}
+.hint{color:var(--mut);font-size:15px}
+.hint a{color:var(--ac)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input id="file" type="file" accept="audio/*" hidden>
+<script>
+const $=s=>document.querySelector(s);
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+const MODEL="gemini-2.5-flash";
+let notes=store.get("notes",[]),key=store.get("key",""),tab="home",openId=null;
+let rec=null,chunks=[],t0=0,timer=null,busy=false,status="",lock=null,stream=null,mime="";
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function md(s){
+  let h="",ul=false;
+  for(let l of String(s).split("\n")){
+    l=esc(l).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+    const li=l.match(/^\s*[-*•]\s+(.*)/);
+    if(li){if(!ul){h+="<ul>";ul=true}h+="<li>"+li[1]+"</li>";continue}
+    if(ul){h+="</ul>";ul=false}
+    const hd=l.match(/^#{1,4}\s+(.*)/);
+    if(hd)h+="<h3>"+hd[1]+"</h3>";else if(l.trim())h+="<p>"+l+"</p>";
+  }
+  return h+(ul?"</ul>":"");
+}
+function when(ts){
+  const d=new Date(ts),n=new Date(),p=x=>String(x).padStart(2,"0"),t=p(d.getHours())+":"+p(d.getMinutes());
+  if(d.toDateString()==n.toDateString())return "Сегодня, "+t;
+  if(d.toDateString()==new Date(n-864e5).toDateString())return "Вчера, "+t;
+  return d.toLocaleDateString("ru-RU",{day:"numeric",month:"short"})+", "+t;
+}
+const clock=s=>{const m=Math.floor(s/60),x=Math.floor(s%60),p=n=>String(n).padStart(2,"0");return p(m)+":"+p(x)};
+
+const I={
+  mic:'<svg viewBox="0 0 24 24" width="72" height="72" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="#fff"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>',
+  stop:'<svg viewBox="0 0 24 24" width="64" height="64"><rect x="5" y="5" width="14" height="14" rx="3" fill="#fff"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#c8cde0" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 3.2"/></svg>',
+  doc:'<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#e8ebf7" stroke-width="2" stroke-linecap="round"><path d="M6 3h8l4 4v14H6z" fill="#e8ebf7" stroke="none"/><path d="M9 12h6M9 16h6M9 8h3" stroke="#1e2233"/></svg>',
+  home:'<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  user:'<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#8a90a6" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>'
+};
+
+function item(n){
+  return `<button class="item" onclick="openNote(${n.id})"><span class="ico">${I.doc}</span><span class="t"><b>${esc(n.subject)}</b><small>${when(n.ts)}${n.dur?" • "+Math.max(1,Math.round(n.dur/60))+" мин":""}</small></span>${I.chev}</button>`;
+}
+function bars(){return '<span class="bars"><i style="height:10px"></i><i style="height:22px"></i><i style="height:16px"></i><i style="height:26px"></i></span>'}
+
+function homeView(){
+  const on=!!rec&&rec.state!=="inactive";
+  const label=busy?status:on?"Идёт запись урока":(status||"Запись не ведётся");
+  return `<div class="top"><h1>Уч Конспект</h1><button class="gear" aria-label="Настройки" onclick="go('profile')">${I.gear}</button></div>
+  <div class="micwrap"><div class="ring"><button class="mic ${on?"on":""}" ${busy?"disabled":""} onclick="${on?"stop()":"start()"}" aria-label="${on?"Остановить запись":"Начать запись"}">${on?I.stop:I.mic}</button></div></div>
+  <p class="cap">${busy?"Делаю конспект…":on?"Нажмите, чтобы закончить":"Нажмите, чтобы начать запись"}</p>
+  <div class="bar ${on?"rec":""}">${bars()}<span class="st">${esc(label)}</span><span class="tm" id="tm">${on?clock((Date.now()-t0)/1000):"00:00"}</span></div>
+  ${on||busy?"":'<p class="hint" style="text-align:center;margin:14px 0 0"><button class="link" style="font-size:15px" onclick="$(\'#file\').click()">Или загрузить готовую запись</button></p>'}
+  <div class="sec"><h2>Ваши конспекты</h2>${notes.length>3?'<button class="link" onclick="go(\'history\')">Все ›</button>':""}</div>
+  ${notes.length?notes.slice(0,3).map(item).join(""):'<p class="empty">Пока пусто. Запишите первый урок.</p>'}`;
+}
+function historyView(){
+  return `<div class="top"><h1>История</h1></div><div style="margin-top:18px">${notes.length?notes.map(item).join(""):'<p class="empty">Конспектов пока нет.</p>'}</div>`;
+}
+function profileView(){
+  return `<div class="top"><h1>Профиль</h1></div>
+  <h2 style="margin-top:22px;font-size:19px">Ключ Gemini</h2>
+  <input id="k" type="password" placeholder="Вставьте ключ" value="${esc(key)}" autocomplete="off">
+  <p class="hint">Бесплатный ключ: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Он хранится только в этом телефоне.</p>
+  <div class="btns"><button class="btn" onclick="saveKey()">Сохранить ключ</button></div>
+  <h2 style="margin-top:32px;font-size:19px">Данные</h2>
+  <p class="hint">Аудио нигде не сохраняется: после расшифровки остаётся только текст конспекта. Запись уходит в Google на обработку, поэтому записывайте уроки только с разрешения школы.</p>
+  <div class="btns"><button class="btn d" onclick="wipe()">Удалить все конспекты</button></div>`;
+}
+function noteView(n){
+  return `<button class="back" onclick="openNote(null)">‹ Назад</button><h1 style="font-size:28px">${esc(n.subject)}</h1><p class="hint" style="margin:4px 0 0">${when(n.ts)}</p>
+  <div class="note">${md(n.text)}</div>
+  <div class="btns"><button class="btn" onclick="copyNote(${n.id})">Скопировать</button><button class="btn g" onclick="shareNote(${n.id})">Поделиться</button><button class="btn d" onclick="delNote(${n.id})">Удалить</button></div>`;
+}
+
+function draw(){
+  const n=notes.find(x=>x.id===openId);
+  const body=n?noteView(n):tab==="home"?homeView():tab==="history"?historyView():profileView();
+  const nb=(t,ic,l)=>`<button class="${tab===t&&!n?"on":""}" onclick="go('${t}')">${I[ic]}<span>${l}</span></button>`;
+  $("#app").innerHTML=`<main>${body}</main><nav>${nb("home","home","Главная")}${nb("history","clock","История")}${nb("profile","user","Профиль")}</nav>`;
+}
+function go(t){tab=t;openId=null;draw()}
+function openNote(id){openId=id;draw()}
+function saveKey(){key=$("#k").value.trim();store.set("key",key);alert("Ключ сохранён");go("home")}
+function wipe(){if(confirm("Удалить все конспекты?")){notes=[];store.set("notes",notes);draw()}}
+function delNote(id){if(confirm("Удалить этот конспект?")){notes=notes.filter(x=>x.id!==id);store.set("notes",notes);openId=null;draw()}}
+function noteText(id){const n=notes.find(x=>x.id===id);return n.subject+"\n\n"+n.text}
+async function copyNote(id){try{await navigator.clipboard.writeText(noteText(id));alert("Скопировано")}catch(e){alert("Не удалось скопировать")}}
+async function shareNote(id){try{await navigator.share({text:noteText(id)})}catch(e){}}
+
+function tick(){
+  const s=(Date.now()-t0)/1000,e=$("#tm");
+  if(e)e.textContent=clock(s);
+  if(s>=3600)stop();
+}
+async function start(){
+  if(!key){alert("Сначала вставьте ключ Gemini в разделе «Профиль».");go("profile");return}
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{autoGainControl:true}})}
+  catch(e){alert("Нет доступа к микрофону. Разрешите его в настройках браузера.");return}
+  mime=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m))||"";
+  chunks=[];status="";
+  rec=new MediaRecorder(stream,mime?{mimeType:mime,audioBitsPerSecond:24000}:{audioBitsPerSecond:24000});
+  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  rec.onstop=()=>{
+    const dur=(Date.now()-t0)/1000;
+    analyze(new Blob(chunks,{type:(rec.mimeType||mime||"audio/webm")}),dur);
+  };
+  rec.start(10000);t0=Date.now();
+  try{lock=await navigator.wakeLock.request("screen")}catch(e){}
+  timer=setInterval(tick,500);draw();
+}
+function stop(){
+  clearInterval(timer);
+  if(rec&&rec.state!=="inactive")rec.stop();
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  if(lock){lock.release().catch(()=>{});lock=null}
+}
+$("#file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f)analyze(f,0)};
+
+const toB64=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(",")[1]);r.onerror=no;r.readAsDataURL(b)});
+const PROMPT=`Это запись школьного урока в 6 классе. Учитель часто повторяет одно и то же, а ученик мог не расслышать. Сделай конспект на русском языке простыми короткими фразами, без повторов.
+Верни JSON: {"subject":"школьный предмет, 1-2 слова","text":"конспект в markdown"}.
+В поле text используй разделы с заголовками ##: Тема урока; Главное (список); Определения и правила; Домашнее задание (если было, иначе пропусти); Неразборчиво (что не удалось расслышать, с примерным временем).
+Не записывай имена учеников и посторонние разговоры.`;
+async function analyze(blob,dur){
+  busy=true;status="Анализирую урок, это займёт 1–3 минуты";draw();
+  try{
+    if(blob.size>14e6)throw new Error("запись слишком большая (больше ~14 МБ)");
+    const data=await toB64(blob);
+    const mt=(blob.type||"audio/mpeg").split(";")[0];
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify({contents:[{parts:[{text:PROMPT},{inline_data:{mime_type:mt,data}}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    const j=await r.json();
+    if(!r.ok)throw new Error((j.error&&j.error.message)||r.status);
+    const o=JSON.parse(j.candidates[0].content.parts[0].text);
+    notes.unshift({id:Date.now(),subject:o.subject||"Урок",text:o.text||"",ts:Date.now(),dur});
+    store.set("notes",notes);status="";
+  }catch(e){status="Ошибка: "+e.message}
+  busy=false;draw();
+}
+draw();
+</script>
+</body>
+</html>
