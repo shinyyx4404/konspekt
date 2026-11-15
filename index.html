@@ -65,7 +65,7 @@ const store={
   get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
-const MODEL="gemini-2.5-flash";
+const MODEL="gemini-3.8-flash";
 let notes=store.get("notes",[]),key=store.get("key",""),tab="home",openId=null;
 let rec=null,chunks=[],t0=0,timer=null,busy=false,status="",lock=null,stream=null,mime="";
 
