@@ -20,10 +20,12 @@ jobs:
         run: |
           mkdir www && cp index.html www/
           npm init -y
-          npm i @capacitor/core @capacitor/cli @capacitor/android
+          npm i @capacitor/core @capacitor/cli @capacitor/android @capawesome-team/capacitor-android-foreground-service --legacy-peer-deps
           npx cap init "Уч Конспект" com.example.ukonspekt --web-dir=www
           npx cap add android
-          sed -i 's#</manifest>#<uses-permission android:name="android.permission.RECORD_AUDIO"/><uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/></manifest>#' android/app/src/main/AndroidManifest.xml
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.RECORD_AUDIO"/><uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.WAKE_LOCK"/></manifest>#' $M
+          sed -i 's#</application>#<service android:name="io.capawesome.capacitorjs.plugins.foregroundservice.AndroidForegroundService" android:foregroundServiceType="microphone" android:exported="false"/></application>#' $M
           npx cap sync android
           cd android && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
